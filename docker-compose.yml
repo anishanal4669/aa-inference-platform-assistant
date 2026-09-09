@@ -1,0 +1,29 @@
+services:
+  gateway:
+    build: ./server
+    ports: ["8080:8080"]
+    environment:
+      GATEWAY_ALLOW_ANONYMOUS: "false"
+      GATEWAY_API_KEYS: "sk-demo:demo-user"
+      GATEWAY_CORS_ORIGINS: "http://localhost:5173"
+      # Point at the vllm service below once you enable that profile.
+      GATEWAY_OPENAI_BASE_URL: "http://vllm:8000/v1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Optional GPU backend: docker compose --profile gpu up
+  vllm:
+    profiles: ["gpu"]
+    image: vllm/vllm-openai:latest
+    command: >
+      --model meta-llama/Llama-3.3-70B-Instruct
+      --max-model-len 8192
+    environment:
+      HUGGING_FACE_HUB_TOKEN: "${HUGGING_FACE_HUB_TOKEN:-}"
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
